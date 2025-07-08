@@ -3,6 +3,26 @@
   animation: slideIn 0.6s ease-out;
 }
 
+.error-message {
+  background-color: rgb(254, 226, 226);
+  border: 1px solid rgb(248, 113, 113);
+  color: rgb(185, 28, 28);
+  padding: 12px;
+  margin: 12px 0;
+  border-radius: 6px;
+  font-size: 14px;
+}
+
+.error-message p {
+  margin: 0;
+  line-height: 1.5;
+}
+
+.upload-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
 .module-header {
   margin-bottom: 2rem;
 }
@@ -30,17 +50,48 @@
   flex-wrap: wrap;
 }
 
+.button-group {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
 .control-btn {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
-  padding: 0.75rem 1.5rem;
+  gap: 8px;
+  padding: 8px 16px;
+  border-radius: 4px;
   border: none;
-  border-radius: 0.5rem;
-  font-weight: 600;
   cursor: pointer;
-  transition: all 0.3s ease;
-  font-size: 0.875rem;
+  font-size: 14px;
+  transition: all 0.2s;
+  background-color: var(--primary);
+  color: white;
+}
+
+.control-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.control-btn.primary {
+  background-color: var(--primary);
+  color: white;
+}
+
+.control-btn.secondary {
+  background-color: var(--secondary);
+  color: var(--foreground);
+}
+
+.control-btn:hover:not(:disabled) {
+  opacity: 0.9;
+  transform: translateY(-1px);
+}
+
+.control-btn:active:not(:disabled) {
+  transform: translateY(0);
 }
 
 .control-btn.primary {

@@ -1,5 +1,5 @@
 
-from flask import Flask, request, jsonify, send_file
+from flask import Flask, request, jsonify, send_file, send_from_directory
 from flask_cors import CORS
 import os
 import json
@@ -12,8 +12,19 @@ import matplotlib.pyplot as plt
 import matplotlib
 matplotlib.use('Agg')  # Use non-interactive backend
 
-app = Flask(__name__)
+app = Flask(__name__, static_folder='../dist')
 CORS(app)  # Enable CORS for all routes
+
+# Serve React App
+@app.route('/')
+def serve_react_app():
+    return send_from_directory(app.static_folder, 'index.html')
+
+@app.route('/<path:path>')
+def serve_static(path):
+    if os.path.exists(os.path.join(app.static_folder, path)):
+        return send_from_directory(app.static_folder, path)
+    return send_from_directory(app.static_folder, 'index.html')
 
 # Utility function to convert image to base64
 def image_to_base64(image_array):
@@ -37,19 +48,71 @@ def health_check():
 def bitplane_analysis():
     """Bit-plane analysis endpoint"""
     try:
-        # Simulate bit-plane decomposition
-        # Create sample data for demonstration
-        original_shape = (256, 256)
+        if 'image' not in request.files:
+            return jsonify({'success': False, 'error': 'No image file provided'}), 400
+
+        file = request.files['image']
+        if not file.filename:
+            return jsonify({'success': False, 'error': 'Empty file provided'}), 400
+
+        # Check file extension
+        allowed_extensions = {'.png', '.jpg', '.jpeg', '.bmp', '.tiff'}
+        file_ext = os.path.splitext(file.filename)[1].lower()
+        if file_ext not in allowed_extensions:
+            return jsonify({'success': False, 'error': 'Invalid file format. Allowed formats: PNG, JPG, JPEG, BMP, TIFF'}), 400
+
+        # Read image directly with cv2 from the uploaded file
+        file_bytes = file.read()
+        nparr = np.frombuffer(file_bytes, np.uint8)
+        img = cv2.imdecode(nparr, cv2.IMREAD_GRAYSCALE)
+
+        if img is None:
+            return jsonify({'success': False, 'error': 'Error loading image. Please ensure the image is valid.'}), 400
+
+        # Check image dimensions
+        if img.shape[0] * img.shape[1] > 4096 * 4096:  # Limit image size
+            return jsonify({'success': False, 'error': 'Image too large. Maximum size: 4096x4096 pixels'}), 400
+
         bit_planes = []
-        
-        for i in range(8):
-            # Generate sample bit plane data
-            plane = np.random.randint(0, 2, original_shape) * 255
+        total_energy = 0
+        significant_planes = 0
+
+        # Create bit planes using the same logic as the provided code
+        for bit in range(8):
+            # Extract bit plane
+            bit_plane = (img >> bit) & 1
+            bit_plane_image = bit_plane * 255
+
+            # Calculate energy (normalized pixel sum)
+            energy = np.sum(bit_plane) / (img.shape[0] * img.shape[1])
+            total_energy += energy
+
+            if energy > 0.1:  # Consider planes with >10% energy as significant
+                significant_planes += 1
+
             bit_planes.append({
-                'plane': i,
-                'image': image_to_base64(plane),
-                'energy': float(np.sum(plane) / (255 * original_shape[0] * original_shape[1]))
+                'plane': bit,
+                'image': image_to_base64(bit_plane_image),
+                'energy': float(energy)
             })
+
+        # Calculate compression ratio based on significant planes
+        compression_ratio = 1 - (significant_planes / 8)
+
+        return jsonify({
+            'success': True,
+            'bit_planes': bit_planes,
+            'analysis': {
+                'total_planes': 8,
+                'significant_planes': significant_planes,
+                'compression_ratio': compression_ratio
+            }
+        })
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
         
         return jsonify({
             'success': True,

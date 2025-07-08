@@ -1,16 +1,18 @@
 
 import React from 'react';
+import { useNavigate } from 'react-router-dom';
 import { ChevronLeft, ChevronRight, Layers, Zap, Focus, Scissors, Shield, Bug } from 'lucide-react';
 import './Sidebar.css';
 
-const Sidebar = ({ activeModule, setActiveModule, collapsed, setCollapsed }) => {
+const Sidebar = ({ activeModule, collapsed, setCollapsed }) => {
+  const navigate = useNavigate();
   const modules = [
-    { id: 'bitplane', name: 'Bit-Plane Viewer', icon: Layers },
-    { id: 'fourier', name: 'Fourier Explorer', icon: Zap },
-    { id: 'sharpening', name: 'Sharpening Panel', icon: Focus },
-    { id: 'segmentation', name: 'Edge Segmentation', icon: Scissors },
-    { id: 'intrusion', name: 'Intrusion Detection', icon: Shield },
-    { id: 'malware', name: 'Malware Analysis', icon: Bug },
+    { id: 'bit-planes', name: 'Bit-Plane Viewer', icon: Layers, path: '/bit-planes' },
+    { id: 'fourier', name: 'Fourier Explorer', icon: Zap, path: '/fourier' },
+    { id: 'sharpening', name: 'Sharpening Panel', icon: Focus, path: '/sharpening' },
+    { id: 'edge-segmentation', name: 'Edge Segmentation', icon: Scissors, path: '/edge-segmentation' },
+    { id: 'intrusion-detection', name: 'Intrusion Detection', icon: Shield, path: '/intrusion-detection' },
+    { id: 'malware-analysis', name: 'Malware Analysis', icon: Bug, path: '/malware-analysis' },
   ];
 
   return (
@@ -36,7 +38,7 @@ const Sidebar = ({ activeModule, setActiveModule, collapsed, setCollapsed }) => 
             <button
               key={module.id}
               className={`nav-item ${activeModule === module.id ? 'active' : ''}`}
-              onClick={() => setActiveModule(module.id)}
+              onClick={() => navigate(module.path)}
               title={collapsed ? module.name : ''}
               aria-label={module.name}
             >

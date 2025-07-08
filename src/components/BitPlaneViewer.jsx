@@ -1,8 +1,9 @@
-import React, { useState, useEffect } from 'react';
-import { Play, Pause, RotateCcw, Download } from 'lucide-react';
+import React, { useState, useEffect, useRef } from 'react';
+import { Play, Pause, RotateCcw, Download, Upload } from 'lucide-react';
 import LoadingSpinner from './LoadingSpinner';
-import { mockApi } from '../services/mockApi';
 import './BitPlaneViewer.css';
+
+const API_URL = 'http://localhost:5000';
 
 const BitPlaneViewer = () => {
   const [bitPlanes, setBitPlanes] = useState([]);
@@ -11,18 +12,95 @@ const BitPlaneViewer = () => {
   const [animating, setAnimating] = useState(false);
   const [analysis, setAnalysis] = useState(null);
 
-  const fetchBitPlaneData = async () => {
+  const [selectedImage, setSelectedImage] = useState(null);
+  const fileInputRef = useRef(null);
+
+  const handleImageUpload = (event) => {
+    const file = event.target.files[0];
+    if (file) {
+      setSelectedImage(file);
+      processBitPlanes(file);
+    }
+  };
+
+  const [error, setError] = useState(null);
+
+  const processBitPlanes = async (file) => {
     setLoading(true);
+    setError(null);
     try {
-      const data = await mockApi.fetchBitPlanes();
+      const formData = new FormData();
+      formData.append('image', file);
+
+      const response = await fetch(`${API_URL}/api/bitplanes`, {
+        method: 'POST',
+        body: formData
+      });
+
+      const data = await response.json();
       if (data.success) {
         setBitPlanes(data.bit_planes);
         setAnalysis(data.analysis);
+        setSelectedPlane(0);
+      } else {
+        setError(data.error || 'Failed to process image');
+        setBitPlanes([]);
+        setAnalysis(null);
       }
     } catch (error) {
-      console.error('Error fetching bit-plane data:', error);
+      console.error('Error processing bit-planes:', error);
+      setError('Network error. Please try again.');
+      setBitPlanes([]);
+      setAnalysis(null);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleReset = () => {
+    setSelectedImage(null);
+    setBitPlanes([]);
+    setAnalysis(null);
+    setSelectedPlane(0);
+    setAnimating(false);
+    setError(null);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  };
+
+  const handleExport = async () => {
+    if (!bitPlanes.length) return;
+
+    try {
+      // Create a zip file containing all bit planes
+      const zip = new JSZip();
+      const analysisFolder = zip.folder('bit-plane-analysis');
+
+      // Add each bit plane image
+      bitPlanes.forEach((plane) => {
+        const imageData = plane.image.split(',')[1]; // Remove data URL prefix
+        analysisFolder.file(`bit_plane_${plane.plane}.png`, imageData, {base64: true});
+      });
+
+      // Add analysis report
+      if (analysis) {
+        const report = JSON.stringify(analysis, null, 2);
+        analysisFolder.file('analysis_report.json', report);
+      }
+
+      // Generate and download the zip file
+      const content = await zip.generateAsync({type: 'blob'});
+      const url = window.URL.createObjectURL(content);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = 'bit-plane-analysis.zip';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+    } catch (error) {
+      setError('Failed to export analysis. Please try again.');
     }
   };
 
@@ -39,9 +117,7 @@ const BitPlaneViewer = () => {
     }, 800);
   };
 
-  useEffect(() => {
-    fetchBitPlaneData();
-  }, []);
+  // No initial data fetch needed, waiting for user to upload image
 
   return (
     <div className="bitplane-viewer">
@@ -53,13 +129,48 @@ const BitPlaneViewer = () => {
       </div>
 
       <div className="controls-panel">
-        <button 
-          className="control-btn primary"
-          onClick={fetchBitPlaneData}
-          disabled={loading}
-        >
-          {loading ? <LoadingSpinner size="small" /> : 'Analyze Image'}
-        </button>
+        <input
+          type="file"
+          ref={fileInputRef}
+          onChange={handleImageUpload}
+          accept="image/png,image/jpeg,image/bmp,image/tiff"
+          style={{ display: 'none' }}
+        />
+        {error && (
+          <div className="error-message">
+            <p>{error}</p>
+          </div>
+        )}
+        <div className="button-group">
+          <button 
+            className="control-btn primary"
+            onClick={() => fileInputRef.current.click()}
+            disabled={loading}
+          >
+            {loading ? <LoadingSpinner size="small" /> : (
+              <>
+                <Upload size={16} />
+                Upload Image
+              </>
+            )}
+          </button>
+          
+          <button
+            className="control-btn secondary"
+            onClick={handleReset}
+            disabled={loading || !selectedImage}
+          >
+            <RotateCcw size={16} /> Reset
+          </button>
+
+          <button
+            className="control-btn secondary"
+            onClick={handleExport}
+            disabled={loading || !bitPlanes.length}
+          >
+            <Download size={16} /> Export
+          </button>
+        </div>
         
         <button 
           className="control-btn secondary"
