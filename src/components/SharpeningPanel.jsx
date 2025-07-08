@@ -1,25 +1,38 @@
 
-import React, { useState, useEffect } from 'react';
-import { Focus, Sliders, Eye, Download } from 'lucide-react';
+import React, { useState, useEffect, useRef } from 'react';
+import { Focus, Sliders, Eye, Download, Upload } from 'lucide-react';
 import LoadingSpinner from './LoadingSpinner';
 import './SharpeningPanel.css';
+import './shared-styles.css';
 
 const SharpeningPanel = () => {
   const [sharpeningData, setSharpeningData] = useState(null);
   const [loading, setLoading] = useState(false);
   const [intensity, setIntensity] = useState(50);
   const [showComparison, setShowComparison] = useState(true);
+  const [selectedImage, setSelectedImage] = useState(null);
+  const fileInputRef = useRef(null);
 
-  const fetchSharpeningData = async () => {
+  const handleImageUpload = (event) => {
+    const file = event.target.files[0];
+    if (file) {
+      setSelectedImage(file);
+      fetchSharpeningData(file);
+    }
+  };
+
+  const fetchSharpeningData = async (imageFile) => {
     setLoading(true);
     try {
+      const formData = new FormData();
+      formData.append('image', imageFile);
+      formData.append('intensity', intensity);
+
       const response = await fetch('http://localhost:5000/api/sharpening', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ intensity }),
+        body: formData
       });
+
       const data = await response.json();
       if (data.success) {
         setSharpeningData(data);
@@ -45,6 +58,23 @@ const SharpeningPanel = () => {
       </div>
 
       <div className="controls-panel">
+        <div className="image-upload">
+          <input
+            type="file"
+            accept="image/*"
+            onChange={handleImageUpload}
+            ref={fileInputRef}
+            style={{ display: 'none' }}
+          />
+          <button 
+            className="upload-btn"
+            onClick={() => fileInputRef.current?.click()}
+          >
+            <Upload size={16} />
+            Upload Image
+          </button>
+        </div>
+
         <div className="control-group">
           <label className="control-label">
             <Sliders size={16} />

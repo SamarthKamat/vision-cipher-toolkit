@@ -1,19 +1,40 @@
-import React, { useState, useEffect } from 'react';
-import { Zap, BarChart3, Settings, Eye } from 'lucide-react';
+import React, { useState, useEffect, useRef } from 'react';
+import { Zap, BarChart3, Settings, Eye, Upload } from 'lucide-react';
 import LoadingSpinner from './LoadingSpinner';
-import { mockApi } from '../services/mockApi';
 import './FourierExplorer.css';
+import './shared-styles.css';
+
+import { mockApi } from '../services/mockApi';
 
 const FourierExplorer = () => {
   const [fourierData, setFourierData] = useState(null);
   const [loading, setLoading] = useState(false);
   const [activeView, setActiveView] = useState('magnitude');
   const [filterRadius, setFilterRadius] = useState(50);
+  const [selectedImage, setSelectedImage] = useState(null);
+  const fileInputRef = useRef(null);
 
-  const fetchFourierData = async () => {
+  const handleImageUpload = (event) => {
+    const file = event.target.files[0];
+    if (file) {
+      setSelectedImage(file);
+      fetchFourierData(file);
+    }
+  };
+
+  const fetchFourierData = async (imageFile) => {
     setLoading(true);
     try {
-      const data = await mockApi.fetchFourierData(filterRadius);
+      const formData = new FormData();
+      formData.append('image', imageFile);
+      formData.append('filterRadius', filterRadius);
+
+      const response = await fetch('http://localhost:5000/api/fourier', {
+        method: 'POST',
+        body: formData
+      });
+
+      const data = await response.json();
       if (data.success) {
         setFourierData(data);
       }
@@ -44,6 +65,23 @@ const FourierExplorer = () => {
       </div>
 
       <div className="controls-section">
+        <div className="image-upload">
+          <input
+            type="file"
+            accept="image/*"
+            onChange={handleImageUpload}
+            ref={fileInputRef}
+            style={{ display: 'none' }}
+          />
+          <button 
+            className="upload-btn"
+            onClick={() => fileInputRef.current?.click()}
+          >
+            <Upload size={16} />
+            Upload Image
+          </button>
+        </div>
+
         <div className="view-selector">
           {views.map((view) => {
             const Icon = view.icon;

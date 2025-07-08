@@ -1,4 +1,3 @@
-
 from flask import Flask, request, jsonify, send_file, send_from_directory
 from flask_cors import CORS
 import os
@@ -92,17 +91,15 @@ def bitplane_analysis():
         total_energy = 0
         significant_planes = 0
 
-        # Create bit planes using the same logic as the provided code
+        # Create bit planes
         for bit in range(8):
-            # Extract bit plane
             bit_plane = (img >> bit) & 1
             bit_plane_image = bit_plane * 255
 
-            # Calculate energy (normalized pixel sum)
             energy = np.sum(bit_plane) / (img.shape[0] * img.shape[1])
             total_energy += energy
 
-            if energy > 0.1:  # Consider planes with >10% energy as significant
+            if energy > 0.1:
                 significant_planes += 1
 
             bit_planes.append({
@@ -111,7 +108,6 @@ def bitplane_analysis():
                 'energy': float(energy)
             })
 
-        # Calculate compression ratio based on significant planes
         compression_ratio = 1 - (significant_planes / 8)
 
         return jsonify({
@@ -124,41 +120,56 @@ def bitplane_analysis():
             }
         })
     except Exception as e:
-        return jsonify({
-            'success': False,
-            'error': str(e)
-        }), 500
-        
-        return jsonify({
-            'success': True,
-            'bit_planes': bit_planes,
-            'analysis': {
-                'total_planes': 8,
-                'significant_planes': 6,
-                'compression_ratio': 0.75
-            }
-        })
-    except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 500
 
 @app.route('/api/fourier', methods=['POST'])
 def fourier_analysis():
     """Fourier transform analysis endpoint"""
     try:
-        # Generate sample Fourier analysis data
-        freq_data = np.random.random((128, 128)) * 255
-        magnitude_spectrum = np.random.random((128, 128)) * 255
-        phase_spectrum = np.random.random((128, 128)) * 255
-        
+        if 'image' not in request.files:
+            return jsonify({'success': False, 'error': 'No image file provided'}), 400
+
+        file = request.files['image']
+        if not file.filename:
+            return jsonify({'success': False, 'error': 'Empty file provided'}), 400
+
+        # Read image
+        file_bytes = file.read()
+        nparr = np.frombuffer(file_bytes, np.uint8)
+        img = cv2.imdecode(nparr, cv2.IMREAD_GRAYSCALE)
+
+        if img is None:
+            return jsonify({'success': False, 'error': 'Invalid image file'}), 400
+
+        # Apply Fourier Transform
+        f_transform = np.fft.fft2(img)
+        f_shift = np.fft.fftshift(f_transform)
+
+        # Calculate magnitude spectrum
+        magnitude = 20 * np.log(np.abs(f_shift) + 1)
+        magnitude = np.uint8(255 * magnitude / np.max(magnitude))
+
+        # Calculate phase spectrum
+        phase = np.angle(f_shift)
+        phase = np.uint8(255 * (phase + np.pi) / (2 * np.pi))
+
+        # Create frequency domain visualization
+        freq_domain = np.uint8(255 * np.abs(f_shift) / np.max(np.abs(f_shift)))
+
+        # Analysis
+        dominant_freq = np.max(np.abs(f_shift)) / np.sum(np.abs(f_shift))
+        energy_concentration = np.sum(magnitude > np.mean(magnitude)) / magnitude.size
+        phase_coherence = np.std(phase) / 255
+
         return jsonify({
             'success': True,
-            'frequency_domain': image_to_base64(freq_data),
-            'magnitude_spectrum': image_to_base64(magnitude_spectrum),
-            'phase_spectrum': image_to_base64(phase_spectrum),
+            'magnitude_spectrum': image_to_base64(magnitude),
+            'phase_spectrum': image_to_base64(phase),
+            'frequency_domain': image_to_base64(freq_domain),
             'analysis': {
-                'dominant_frequency': 0.25,
-                'energy_concentration': 0.82,
-                'phase_coherence': 0.67
+                'dominant_frequency': float(dominant_freq),
+                'energy_concentration': float(energy_concentration),
+                'phase_coherence': float(phase_coherence)
             }
         })
     except Exception as e:
@@ -168,18 +179,48 @@ def fourier_analysis():
 def image_sharpening():
     """Image sharpening analysis endpoint"""
     try:
-        # Generate sample sharpening results
-        original = np.random.randint(0, 255, (256, 256, 3))
-        sharpened = np.clip(original * 1.2, 0, 255)
-        
+        if 'image' not in request.files:
+            return jsonify({'success': False, 'error': 'No image file provided'}), 400
+
+        file = request.files['image']
+        if not file.filename:
+            return jsonify({'success': False, 'error': 'Empty file provided'}), 400
+
+        # Read image
+        file_bytes = file.read()
+        nparr = np.frombuffer(file_bytes, np.uint8)
+        img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+
+        if img is None:
+            return jsonify({'success': False, 'error': 'Invalid image file'}), 400
+
+        # Get intensity parameter
+        intensity = float(request.form.get('intensity', 50)) / 100.0
+
+        # Create sharpening kernel
+        kernel = np.array([[-1,-1,-1],
+                          [-1, 9,-1],
+                          [-1,-1,-1]]) * intensity
+
+        # Apply sharpening
+        sharpened = cv2.filter2D(img, -1, kernel)
+
+        # Calculate metrics
+        original_edges = cv2.Laplacian(cv2.cvtColor(img, cv2.COLOR_BGR2GRAY), cv2.CV_64F)
+        sharpened_edges = cv2.Laplacian(cv2.cvtColor(sharpened, cv2.COLOR_BGR2GRAY), cv2.CV_64F)
+
+        sharpness_increase = (np.mean(np.abs(sharpened_edges)) - np.mean(np.abs(original_edges))) / np.mean(np.abs(original_edges)) * 100
+        edge_enhancement = np.sum(np.abs(sharpened_edges) > np.abs(original_edges)) / original_edges.size * 100
+        noise_level = np.std(sharpened - img) / 255.0 * 100
+
         return jsonify({
             'success': True,
-            'original': image_to_base64(original),
+            'original': image_to_base64(img),
             'sharpened': image_to_base64(sharpened),
             'metrics': {
-                'sharpness_increase': 25.3,
-                'edge_enhancement': 18.7,
-                'noise_level': 2.4
+                'sharpness_increase': float(sharpness_increase),
+                'edge_enhancement': float(edge_enhancement),
+                'noise_level': float(noise_level)
             }
         })
     except Exception as e:
@@ -189,18 +230,54 @@ def image_sharpening():
 def edge_segmentation():
     """Edge detection and segmentation endpoint"""
     try:
-        # Generate sample segmentation results
-        edges = np.random.randint(0, 255, (256, 256))
-        segments = np.random.randint(0, 5, (256, 256)) * 50
-        
+        if 'image' not in request.files:
+            return jsonify({'success': False, 'error': 'No image file provided'}), 400
+
+        file = request.files['image']
+        if not file.filename:
+            return jsonify({'success': False, 'error': 'Empty file provided'}), 400
+
+        # Read image
+        file_bytes = file.read()
+        nparr = np.frombuffer(file_bytes, np.uint8)
+        img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+
+        if img is None:
+            return jsonify({'success': False, 'error': 'Invalid image file'}), 400
+
+        # Process image based on algorithm
+        algorithm = request.form.get('algorithm', 'canny')
+        threshold = int(request.form.get('threshold', 128))
+
+        # Convert to grayscale for edge detection
+        gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+
+        # Apply edge detection
+        if algorithm == 'canny':
+            edges = cv2.Canny(gray, threshold/2, threshold)
+        elif algorithm == 'sobel':
+            sobelx = cv2.Sobel(gray, cv2.CV_64F, 1, 0, ksize=3)
+            sobely = cv2.Sobel(gray, cv2.CV_64F, 0, 1, ksize=3)
+            edges = np.uint8(np.sqrt(sobelx**2 + sobely**2))
+        else:  # watershed
+            edges = cv2.adaptiveThreshold(gray, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY, 11, 2)
+
+        # Simple segmentation using threshold
+        _, segments = cv2.threshold(gray, threshold, 255, cv2.THRESH_BINARY)
+
+        # Analysis
+        edge_count = np.count_nonzero(edges)
+        segment_count = len(np.unique(segments))
+        avg_segment_size = img.size / segment_count if segment_count > 0 else 0
+
         return jsonify({
             'success': True,
             'edges': image_to_base64(edges),
             'segments': image_to_base64(segments),
             'analysis': {
-                'edge_count': 1247,
-                'segment_count': 23,
-                'avg_segment_size': 2890.5
+                'edge_count': int(edge_count),
+                'segment_count': int(segment_count),
+                'avg_segment_size': float(avg_segment_size)
             }
         })
     except Exception as e:

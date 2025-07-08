@@ -1,8 +1,9 @@
-import React, { useState, useEffect } from 'react';
-import { Scissors, Grid, Eye, Settings } from 'lucide-react';
+import React, { useState, useEffect, useRef } from 'react';
+import { Scissors, Grid, Eye, Settings, Upload } from 'lucide-react';
 import LoadingSpinner from './LoadingSpinner';
-import { mockApi } from '../services/mockApi';
 import './EdgeSegmentation.css';
+import './shared-styles.css';
+import { mockApi } from '../services/mockApi';
 
 const EdgeSegmentation = () => {
   const [segmentationData, setSegmentationData] = useState(null);
@@ -10,11 +11,29 @@ const EdgeSegmentation = () => {
   const [activeView, setActiveView] = useState('edges');
   const [threshold, setThreshold] = useState(128);
   const [algorithm, setAlgorithm] = useState('canny');
+  const [selectedImage, setSelectedImage] = useState(null);
+  const fileInputRef = useRef(null);
 
-  const fetchSegmentationData = async () => {
+  const handleImageUpload = (event) => {
+    const file = event.target.files[0];
+    if (file) {
+      setSelectedImage(file);
+      fetchSegmentationData(file);
+    }
+  };
+
+  const fetchSegmentationData = async (imageFile) => {
     setLoading(true);
     try {
-      const data = await mockApi.fetchSegmentationData(threshold, algorithm);
+      const formData = new FormData();
+      formData.append('image', imageFile);
+
+      const response = await fetch('http://localhost:5000/api/segmentation', {
+        method: 'POST',
+        body: formData
+      });
+
+      const data = await response.json();
       if (data.success) {
         setSegmentationData(data);
       }
@@ -45,6 +64,23 @@ const EdgeSegmentation = () => {
       </div>
 
       <div className="controls-section">
+        <div className="image-upload">
+          <input
+            type="file"
+            accept="image/*"
+            onChange={handleImageUpload}
+            ref={fileInputRef}
+            style={{ display: 'none' }}
+          />
+          <button 
+            className="upload-btn"
+            onClick={() => fileInputRef.current?.click()}
+          >
+            <Upload size={16} />
+            Upload Image
+          </button>
+        </div>
+
         <div className="algorithm-selector">
           <label className="control-label">
             <Settings size={16} />
