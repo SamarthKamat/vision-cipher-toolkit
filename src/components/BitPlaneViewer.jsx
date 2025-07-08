@@ -1,7 +1,7 @@
-
 import React, { useState, useEffect } from 'react';
 import { Play, Pause, RotateCcw, Download } from 'lucide-react';
 import LoadingSpinner from './LoadingSpinner';
+import { mockApi } from '../services/mockApi';
 import './BitPlaneViewer.css';
 
 const BitPlaneViewer = () => {
@@ -14,14 +14,7 @@ const BitPlaneViewer = () => {
   const fetchBitPlaneData = async () => {
     setLoading(true);
     try {
-      const response = await fetch('http://localhost:5000/api/bitplanes', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({}),
-      });
-      const data = await response.json();
+      const data = await mockApi.fetchBitPlanes();
       if (data.success) {
         setBitPlanes(data.bit_planes);
         setAnalysis(data.analysis);

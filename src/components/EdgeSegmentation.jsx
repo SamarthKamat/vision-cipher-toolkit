@@ -1,7 +1,7 @@
-
 import React, { useState, useEffect } from 'react';
 import { Scissors, Grid, Eye, Settings } from 'lucide-react';
 import LoadingSpinner from './LoadingSpinner';
+import { mockApi } from '../services/mockApi';
 import './EdgeSegmentation.css';
 
 const EdgeSegmentation = () => {
@@ -14,14 +14,7 @@ const EdgeSegmentation = () => {
   const fetchSegmentationData = async () => {
     setLoading(true);
     try {
-      const response = await fetch('http://localhost:5000/api/segmentation', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ threshold, algorithm }),
-      });
-      const data = await response.json();
+      const data = await mockApi.fetchSegmentationData(threshold, algorithm);
       if (data.success) {
         setSegmentationData(data);
       }

@@ -1,7 +1,7 @@
-
 import React, { useState, useEffect } from 'react';
 import { Zap, BarChart3, Settings, Eye } from 'lucide-react';
 import LoadingSpinner from './LoadingSpinner';
+import { mockApi } from '../services/mockApi';
 import './FourierExplorer.css';
 
 const FourierExplorer = () => {
@@ -13,14 +13,7 @@ const FourierExplorer = () => {
   const fetchFourierData = async () => {
     setLoading(true);
     try {
-      const response = await fetch('http://localhost:5000/api/fourier', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ filter_radius: filterRadius }),
-      });
-      const data = await response.json();
+      const data = await mockApi.fetchFourierData(filterRadius);
       if (data.success) {
         setFourierData(data);
       }
