@@ -55,11 +55,20 @@ def bitplane_analysis():
         if not file.filename:
             return jsonify({'success': False, 'error': 'Empty file provided'}), 400
 
+        # Load configuration from environment variables
+        from dotenv import load_dotenv
+        load_dotenv()
+        
+        max_size = int(os.getenv('MAX_IMAGE_SIZE', 4096))
+        allowed_formats = set(os.getenv('ALLOWED_IMAGE_FORMATS', 'png,jpg,jpeg,bmp,tiff').split(','))
+        
         # Check file extension
-        allowed_extensions = {'.png', '.jpg', '.jpeg', '.bmp', '.tiff'}
-        file_ext = os.path.splitext(file.filename)[1].lower()
-        if file_ext not in allowed_extensions:
-            return jsonify({'success': False, 'error': 'Invalid file format. Allowed formats: PNG, JPG, JPEG, BMP, TIFF'}), 400
+        file_ext = os.path.splitext(file.filename)[1].lower().lstrip('.')
+        if file_ext not in allowed_formats:
+            return jsonify({
+                'success': False, 
+                'error': f'Invalid file format. Allowed formats: {", ".join(allowed_formats).upper()}'
+            }), 400
 
         # Read image directly with cv2 from the uploaded file
         file_bytes = file.read()
@@ -67,11 +76,17 @@ def bitplane_analysis():
         img = cv2.imdecode(nparr, cv2.IMREAD_GRAYSCALE)
 
         if img is None:
-            return jsonify({'success': False, 'error': 'Error loading image. Please ensure the image is valid.'}), 400
+            return jsonify({
+                'success': False, 
+                'error': 'Error loading image. Please ensure the image is valid.'
+            }), 400
 
         # Check image dimensions
-        if img.shape[0] * img.shape[1] > 4096 * 4096:  # Limit image size
-            return jsonify({'success': False, 'error': 'Image too large. Maximum size: 4096x4096 pixels'}), 400
+        if img.shape[0] * img.shape[1] > max_size * max_size:
+            return jsonify({
+                'success': False, 
+                'error': f'Image too large. Maximum size: {max_size}x{max_size} pixels'
+            }), 400
 
         bit_planes = []
         total_energy = 0
